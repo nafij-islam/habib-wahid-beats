@@ -22,73 +22,94 @@ const MusicPlayer = () => {
   const {
     currentSong,
     isPlaying,
-    currentTime,
     volume,
     togglePlay,
     nextSong,
     previousSong,
     setVolume,
-    setCurrentTime,
   } = usePlayer();
 
   const [localTime, setLocalTime] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // ১. আসল অডিও কন্ট্রোল করার জন্য Ref
+  const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Simulate playback progress
+  // ২. যখন গান পরিবর্তন হবে (currentSong change)
   useEffect(() => {
-    if (isPlaying && currentSong && !isDragging) {
-      intervalRef.current = setInterval(() => {
-        setLocalTime((prev) => {
-          if (prev >= currentSong.duration) {
-            nextSong();
-            return 0;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+    if (audioRef.current && currentSong) {
+      audioRef.current.src = currentSong.audioUrl;
+      audioRef.current.load();
+      if (isPlaying) {
+        audioRef.current.play().catch((e) => console.log("Playback error:", e));
       }
-    };
-  }, [isPlaying, currentSong, isDragging, nextSong]);
-
-  // Reset time when song changes
-  useEffect(() => {
-    setLocalTime(0);
+    }
   }, [currentSong?.id]);
 
+  // ৩. যখন Play/Pause বাটনে ক্লিক হবে
+  useEffect(() => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.play().catch((e) => console.log("Playback error:", e));
+      } else {
+        audioRef.current.pause();
+      }
+    }
+  }, [isPlaying]);
+
+  // ৪. ভলিউম কন্ট্রোল
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
+  }, [volume]);
+
+  // ৫. গানের কারেন্ট টাইম আপডেট করার ফাংশন
+  const onTimeUpdate = () => {
+    if (audioRef.current && !isDragging) {
+      setLocalTime(audioRef.current.currentTime);
+    }
+  };
+
+  // স্লাইডার টেনে সরালে গানের পজিশন চেঞ্জ হবে
   const handleSeek = (value: number[]) => {
     const newTime = value[0];
     setLocalTime(newTime);
-    setCurrentTime(newTime);
+  };
+
+  const handleSeekCommit = (value: number[]) => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = value[0];
+      setIsDragging(false);
+    }
   };
 
   const handleVolumeChange = (value: number[]) => {
     setVolume(value[0] / 100);
   };
 
-  if (!currentSong) {
-    return null;
-  }
-
-  const progress = currentSong.duration > 0 ? (localTime / currentSong.duration) * 100 : 0;
+  if (!currentSong) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 player-bar">
+    <div className="fixed bottom-0 left-0 right-0 z-50 player-bar bg-background/80 backdrop-blur-lg border-t border-border">
+      {/* আসল অডিও এলিমেন্ট যা গান বাজাবে */}
+      <audio
+        ref={audioRef}
+        onTimeUpdate={onTimeUpdate}
+        onEnded={nextSong}
+      />
+
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center gap-4">
-          {/* Song Info */}
+          
+          {/* Song Info Section */}
           <div className="flex items-center gap-3 w-1/4 min-w-0">
             <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 shadow-lg">
               <img
                 src={currentSong.albumCover}
                 alt={currentSong.album}
                 className={cn(
-                  "w-full h-full object-cover transition-transform duration-[8000ms]",
+                  "w-full h-full object-cover",
                   isPlaying && "animate-spin-slow"
                 )}
               />
@@ -102,7 +123,7 @@ const MusicPlayer = () => {
             </Button>
           </div>
 
-          {/* Player Controls */}
+          {/* Player Controls & Progress Bar */}
           <div className="flex-1 flex flex-col items-center gap-2">
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" className="hidden sm:flex w-8 h-8">
@@ -111,17 +132,15 @@ const MusicPlayer = () => {
               <Button variant="ghost" size="icon" className="w-8 h-8" onClick={previousSong}>
                 <SkipBack className="w-4 h-4" />
               </Button>
+              
               <Button
                 size="icon"
-                className="w-10 h-10 rounded-full bg-foreground text-background hover:bg-foreground/90 hover:scale-105 transition-all"
+                className="w-10 h-10 rounded-full bg-foreground text-background hover:bg-foreground/90 transition-all"
                 onClick={togglePlay}
               >
-                {isPlaying ? (
-                  <Pause className="w-5 h-5" />
-                ) : (
-                  <Play className="w-5 h-5 ml-0.5" />
-                )}
+                {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
               </Button>
+
               <Button variant="ghost" size="icon" className="w-8 h-8" onClick={nextSong}>
                 <SkipForward className="w-4 h-4" />
               </Button>
@@ -130,7 +149,7 @@ const MusicPlayer = () => {
               </Button>
             </div>
 
-            {/* Progress Bar */}
+            {/* Progress Slider */}
             <div className="w-full max-w-xl flex items-center gap-2">
               <span className="text-xs text-muted-foreground w-10 text-right">
                 {formatDuration(Math.floor(localTime))}
@@ -138,10 +157,10 @@ const MusicPlayer = () => {
               <Slider
                 value={[localTime]}
                 max={currentSong.duration}
-                step={1}
+                step={0.1}
                 onValueChange={handleSeek}
                 onPointerDown={() => setIsDragging(true)}
-                onPointerUp={() => setIsDragging(false)}
+                onPointerUp={() => handleSeekCommit([localTime])}
                 className="flex-1 cursor-pointer"
               />
               <span className="text-xs text-muted-foreground w-10">
@@ -150,12 +169,11 @@ const MusicPlayer = () => {
             </div>
           </div>
 
-          {/* Volume & Other Controls */}
+          {/* Volume Section */}
           <div className="hidden md:flex items-center gap-2 w-1/4 justify-end">
             <Button variant="ghost" size="icon" className="w-8 h-8">
               <ListMusic className="w-4 h-4 text-muted-foreground" />
             </Button>
-            
             <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
@@ -163,25 +181,20 @@ const MusicPlayer = () => {
                 className="w-8 h-8"
                 onClick={() => setVolume(volume === 0 ? 0.7 : 0)}
               >
-                {volume === 0 ? (
-                  <VolumeX className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <Volume2 className="w-4 h-4 text-muted-foreground" />
-                )}
+                {volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
               </Button>
               <Slider
                 value={[volume * 100]}
                 max={100}
-                step={1}
                 onValueChange={handleVolumeChange}
                 className="w-24 cursor-pointer"
               />
             </div>
-
             <Button variant="ghost" size="icon" className="w-8 h-8">
               <Maximize2 className="w-4 h-4 text-muted-foreground" />
             </Button>
           </div>
+
         </div>
       </div>
     </div>

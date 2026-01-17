@@ -13,7 +13,7 @@ const Header = () => {
           {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-gold-dark flex items-center justify-center">
-              <span className="text-primary-foreground font-display font-bold text-xl">B</span>
+              <span className="text-primary-foreground font-display font-bold text-xl">N</span>
             </div>
             <span className="font-display font-bold text-xl hidden sm:block">
               <span className="gradient-text">Bangla</span>
