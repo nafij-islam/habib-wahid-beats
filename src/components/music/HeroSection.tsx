@@ -40,7 +40,7 @@ const HeroSection = ({ artistImage }: HeroSectionProps) => {
       <div className="relative container sm:mt-26 mt-32  mx-auto px-4 pb-12 md:pb-16">
         <div className="max-w-2xl animate-slide-up">
           <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-primary/20 text-primary mb-4">
-            Featured Artist
+            I Love Habib Wahid
           </span>
           <br />
           <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-primary/20 text-primary mb-4">
